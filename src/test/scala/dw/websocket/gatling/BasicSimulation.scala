@@ -10,11 +10,11 @@ class BasicSimulation extends Simulation {
 
 	val httpConf = http
 		.baseURL("http://localhost:8080")
-		.wsBaseURL("ws://localhost:8080")
-		  .wsReconnect
-		  .wsMaxReconnects(10)
 		.acceptHeader("application/json")
 		.contentTypeHeader("application/json")
+		.wsBaseURL("ws://localhost:8080")
+		  .wsReconnect
+		  .wsMaxReconnects(2)
 
 	val random = new util.Random
 	val tenantFeeder = Iterator.continually(Map("tenantid" -> ("tenant-" + random.nextInt())))
@@ -45,8 +45,7 @@ class BasicSimulation extends Simulation {
 						"""))
 					.check(jsonPath("$.id").ofType[String].saveAs("MessId"))
 		)
-		  .exec(ws("check ACK MessId", "theWs").check(wsListen.within(110 seconds).accumulate.jsonPath("$.id").is("${MessId}")))
-		  .exec(ws("check ACK is OK", "theWs").check(wsListen.within(110 seconds).accumulate.jsonPath("$.status").is("OK")))
+		  .exec(ws("check ACK MessId", "theWs").check(wsListen.within(10 seconds).accumulate.jsonPath("$[?(@.status =='OK')].id").is("${MessId}")) )
 		  .repeat(10, "j") {
 				exec(ws("NOK accumulated check", "theWs").check(wsListen.within((5) seconds).accumulate.jsonPath("$.status").is("never happens")))
 			}
@@ -57,12 +56,12 @@ class BasicSimulation extends Simulation {
 		.feed(tenantFeeder)
 		.exec(openWs("${tenantid}"))
 		.pause(1)
-		.exec(sendSms(50, "${tenantid}"))
-		.pause(120)
+		.exec(sendSms(5, "${tenantid}"))
+		.pause(10)
 	  .exec(closeWs("${tenantid}"))
 
 
 	setUp(
-    scn.inject(rampUsers(20) over(3 seconds))
+    scn.inject(rampUsers(2) over(3 seconds))
   ).protocols(httpConf)
 }
